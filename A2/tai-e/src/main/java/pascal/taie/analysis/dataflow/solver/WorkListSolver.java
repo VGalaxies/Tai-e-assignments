@@ -38,30 +38,54 @@ class WorkListSolver<Node, Fact> extends Solver<Node, Fact> {
     @Override
     protected void doSolveForward(CFG<Node> cfg, DataflowResult<Node, Fact> result) {
         // TODO - finish me
-        Queue<Node> queue = new LinkedList<Node>();
+        Queue<Node> queue = new LinkedList<>();
         for (Node node : cfg) {
             queue.add(node);
         }
 
         while (!queue.isEmpty()) {
             Node node = queue.remove();
-            Fact prev_node_out_fact = result.getOutFact(node);
-            Fact node_in_fact = result.getOutFact(node);
+            Fact node_in_fact = result.getInFact(node);
             for (Node pred : cfg.getPredsOf(node)) {
                 Fact pred_fact = result.getOutFact(pred);
                 analysis.meetInto(pred_fact, node_in_fact);
             }
-            result.setOutFact(node, node_in_fact);
+            result.setInFact(node, node_in_fact);
+
+            Fact prev_node_out_fact = result.getOutFact(node);
+            analysis.transferNode(node, node_in_fact, prev_node_out_fact);
             Fact curr_node_out_fact = result.getOutFact(node);
+
             if (curr_node_out_fact != prev_node_out_fact) {
-                for (Node pred : cfg.getPredsOf(node)) {
-                    if (!queue.contains(pred)) {
-                        queue.add(pred);
+                for (Node succ : cfg.getSuccsOf(node)) {
+                    if (!queue.contains(succ)) {
+                        queue.add(succ);
                     }
                 }
 
             }
         }
+/*
+        Node entry = cfg.getEntry();
+        boolean changed;
+        do {
+            changed = false;
+            for (Node node : cfg) {
+                if (node != entry) {
+                    Fact node_in_fact = result.getInFact(node);
+                    for (Node pred : cfg.getPredsOf(node)) {
+                        Fact pred_fact = result.getOutFact(pred);
+                        analysis.meetInto(pred_fact, node_in_fact);
+                    }
+                    result.setInFact(node, node_in_fact);
+
+                    Fact node_out_fact = result.getOutFact(node);
+                    changed = analysis.transferNode(node, node_in_fact, node_out_fact) || changed;
+                    result.setOutFact(node, node_out_fact);
+                }
+            }
+        } while (changed);
+        */
     }
 
     @Override

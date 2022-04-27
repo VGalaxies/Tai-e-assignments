@@ -35,6 +35,7 @@ import pascal.taie.util.AnalysisException;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static pascal.taie.ir.exp.ArithmeticExp.Op.ADD;
 
@@ -58,7 +59,7 @@ public class ConstantPropagation extends
         CPFact cpFact = new CPFact();
         for (Var var : cfg.getIR().getParams()) {
             if (canHoldInt(var)) {
-                cpFact.update(var, Value.getUndef());
+                cpFact.update(var, Value.getNAC());
             }
         }
         return cpFact;
@@ -73,7 +74,7 @@ public class ConstantPropagation extends
     @Override
     public void meetInto(CPFact fact, CPFact target) {
         // TODO - finish me
-        for (Var key : target.keySet()) {
+        for (Var key : fact.keySet()) {
             target.update(key, meetValue(fact.get(key), target.get(key)));
         }
     }
@@ -105,22 +106,21 @@ public class ConstantPropagation extends
     @Override
     public boolean transferNode(Stmt stmt, CPFact in, CPFact out) {
         // TODO - finish me
-        CPFact prev_out = out.copy();
         Optional<LValue> _def = stmt.getDef();
         if (_def.isPresent()) {
             LValue def = _def.get();
             if (def instanceof Var && stmt instanceof DefinitionStmt) {
-                out = in.copy();
+                CPFact prev_out = out.copy();
+                out.copyFrom(in);
                 DefinitionStmt<?, ?> definitionStmt = (DefinitionStmt<?, ?>) stmt;
                 out.update((Var) def, evaluate(definitionStmt.getRValue(), in));
-                return out != prev_out;
+                CPFact curr_out = out.copy();
+                return !curr_out.equals(prev_out);
             } else {
-                out = in.copy();
-                return out != prev_out; // identity function
+                return out.copyFrom(in); // identity function
             }
         } else {
-            out = in.copy();
-            return out != prev_out; // identity function
+            return out.copyFrom(in); // identity function
         }
     }
 
@@ -157,6 +157,7 @@ public class ConstantPropagation extends
             return Value.makeConstant(intLiteral.getValue());
         } else if (exp instanceof Var) {
             Var var = (Var) exp;
+            // e.g. y = 1; x = y;
             return in.get(var);
         } else if (exp instanceof BinaryExp) {
             BinaryExp binaryExp = (BinaryExp) exp;
@@ -235,8 +236,8 @@ public class ConstantPropagation extends
 
                 }
             }
-            return Value.getUndef();
+            return Value.getNAC();
         }
-        return null;
+        return Value.getNAC();
     }
 }
