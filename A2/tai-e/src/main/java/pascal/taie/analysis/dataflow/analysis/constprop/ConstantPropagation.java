@@ -236,8 +236,8 @@ public class ConstantPropagation extends
 
                 }
             }
-            return Value.getNAC();
+            return Value.getUndef(); // note
         }
-        return Value.getNAC();
+        return Value.getNAC(); // note
     }
 }

@@ -11,7 +11,7 @@ class Loop {
         }
     }
 
-/*    void whileNAC() {
+    void whileNAC() {
         int a, b = 0, c = 0;
         int i = 0;
         while (i < 10) {
@@ -21,9 +21,8 @@ class Loop {
             ++i;
         }
     }
-    */
 
-/*    void whileUndefinedConstant() {
+    void whileUndefinedConstant() {
         int a, b, c;
         int i = 0;
         while (i < 10) {
@@ -33,5 +32,4 @@ class Loop {
             ++i;
         }
     }
-    */
 }

@@ -27,7 +27,6 @@ import pascal.taie.analysis.dataflow.fact.DataflowResult;
 import pascal.taie.analysis.graph.cfg.CFG;
 
 import java.util.LinkedList;
-import java.util.Queue;
 
 class WorkListSolver<Node, Fact> extends Solver<Node, Fact> {
 
@@ -38,13 +37,14 @@ class WorkListSolver<Node, Fact> extends Solver<Node, Fact> {
     @Override
     protected void doSolveForward(CFG<Node> cfg, DataflowResult<Node, Fact> result) {
         // TODO - finish me
-        Queue<Node> queue = new LinkedList<>();
+        LinkedList<Node> list = new LinkedList<>();
         for (Node node : cfg) {
-            queue.add(node);
+            list.addLast(node);
         }
 
-        while (!queue.isEmpty()) {
-            Node node = queue.remove();
+        while (!list.isEmpty()) {
+            Node node = list.pollFirst();
+
             Fact node_in_fact = result.getInFact(node);
             for (Node pred : cfg.getPredsOf(node)) {
                 Fact pred_fact = result.getOutFact(pred);
@@ -52,17 +52,16 @@ class WorkListSolver<Node, Fact> extends Solver<Node, Fact> {
             }
             result.setInFact(node, node_in_fact);
 
-            Fact prev_node_out_fact = result.getOutFact(node);
-            analysis.transferNode(node, node_in_fact, prev_node_out_fact);
-            Fact curr_node_out_fact = result.getOutFact(node);
+            Fact node_out_fact = result.getOutFact(node);
+            boolean changed = analysis.transferNode(node, node_in_fact, node_out_fact);
+            result.setOutFact(node, node_out_fact);
 
-            if (curr_node_out_fact != prev_node_out_fact) {
+            if (changed) {
                 for (Node succ : cfg.getSuccsOf(node)) {
-                    if (!queue.contains(succ)) {
-                        queue.add(succ);
+                    if (!list.contains(succ)) {
+                        list.addLast(succ);
                     }
                 }
-
             }
         }
 /*
@@ -84,8 +83,7 @@ class WorkListSolver<Node, Fact> extends Solver<Node, Fact> {
                     result.setOutFact(node, node_out_fact);
                 }
             }
-        } while (changed);
-        */
+        } while (changed);*/
     }
 
     @Override
