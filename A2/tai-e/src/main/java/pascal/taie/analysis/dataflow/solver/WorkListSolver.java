@@ -83,7 +83,8 @@ class WorkListSolver<Node, Fact> extends Solver<Node, Fact> {
                     result.setOutFact(node, node_out_fact);
                 }
             }
-        } while (changed);*/
+        } while (changed);
+        */
     }
 
     @Override

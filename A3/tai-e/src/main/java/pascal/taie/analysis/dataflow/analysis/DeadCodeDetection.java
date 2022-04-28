@@ -33,21 +33,11 @@ import pascal.taie.analysis.graph.cfg.CFGBuilder;
 import pascal.taie.analysis.graph.cfg.Edge;
 import pascal.taie.config.AnalysisConfig;
 import pascal.taie.ir.IR;
-import pascal.taie.ir.exp.ArithmeticExp;
-import pascal.taie.ir.exp.ArrayAccess;
-import pascal.taie.ir.exp.CastExp;
-import pascal.taie.ir.exp.FieldAccess;
-import pascal.taie.ir.exp.NewExp;
-import pascal.taie.ir.exp.RValue;
-import pascal.taie.ir.exp.Var;
-import pascal.taie.ir.stmt.AssignStmt;
-import pascal.taie.ir.stmt.If;
-import pascal.taie.ir.stmt.Stmt;
-import pascal.taie.ir.stmt.SwitchStmt;
+import pascal.taie.ir.exp.*;
+import pascal.taie.ir.stmt.*;
+import pascal.taie.util.collection.Pair;
 
-import java.util.Comparator;
-import java.util.Set;
-import java.util.TreeSet;
+import java.util.*;
 
 public class DeadCodeDetection extends MethodAnalysis {
 
@@ -71,7 +61,131 @@ public class DeadCodeDetection extends MethodAnalysis {
         Set<Stmt> deadCode = new TreeSet<>(Comparator.comparing(Stmt::getIndex));
         // TODO - finish me
         // Your task is to recognize dead code in ir and add it to deadCode
+        unreachable(deadCode, cfg, constants);
+        deadAssignment(deadCode, cfg, liveVars);
         return deadCode;
+    }
+
+    private static void unreachable(Set<Stmt> res, CFG<Stmt> cfg, DataflowResult<Stmt, CPFact> constants) {
+        Set<Stmt> dead = new TreeSet<>(Comparator.comparing(Stmt::getIndex));
+        for (Stmt stmt : cfg) {
+            if (stmt != cfg.getEntry() && stmt != cfg.getExit()) {
+                dead.add(stmt); // init all
+            }
+        }
+
+        LinkedList<Stmt> list = new LinkedList<>();
+        Stmt entry = cfg.getEntry();
+        list.addLast(entry);
+        dead.remove(entry);
+
+        while (!list.isEmpty()) {
+            Stmt stmt = list.pollFirst();
+
+            if (stmt instanceof If) {
+                If ifStmt = (If) stmt;
+                CPFact inFact = constants.getInFact(ifStmt);
+                Value value = ConstantPropagation.evaluate(ifStmt.getCondition(), inFact);
+
+                boolean cond;
+                if (value.isConstant()) {
+                    if (value.getConstant() == 1) {
+                        cond = true;
+                    } else {
+                        cond = false;
+                    }
+
+                    for (Edge<Stmt> edge : cfg.getOutEdgesOf(ifStmt)) {
+                        if ((cond && edge.getKind() == Edge.Kind.IF_TRUE)
+                                || (!cond && edge.getKind() == Edge.Kind.IF_FALSE)) {
+                            Stmt succ = edge.getTarget();
+                            if (dead.contains(succ)) {
+                                list.addLast(succ);
+                                dead.remove(succ);
+                            }
+                        }
+                    }
+                    continue;
+                } else {
+                    // fall through
+                }
+            }
+
+            if (stmt instanceof SwitchStmt) {
+                SwitchStmt switchStmt = (SwitchStmt) stmt;
+                CPFact inFact = constants.getInFact(switchStmt);
+                Value value = ConstantPropagation.evaluate(switchStmt.getVar(), inFact);
+
+                if (value.isConstant()) {
+                    int val = value.getConstant();
+                    boolean hit = false;
+                    for (Pair<Integer, Stmt> caseTarget : switchStmt.getCaseTargets()) {
+                        if (val == caseTarget.first()) {
+                            hit = true;
+                            Stmt target = caseTarget.second();
+
+                            // no need to consider fall through
+                            if (dead.contains(target)) {
+                                list.addLast(target);
+                                dead.remove(target);
+                            }
+
+                        }
+                    }
+
+                    if (!hit) {
+                        Stmt target = switchStmt.getDefaultTarget();
+                        if (dead.contains(target)) {
+                            list.addLast(target);
+                            dead.remove(target);
+                        }
+                    }
+
+                    continue;
+                } else {
+                    // fall through
+                }
+            }
+
+            for (Stmt succ : cfg.getSuccsOf(stmt)) {
+                if (dead.contains(succ)) {
+                    list.addLast(succ);
+                    dead.remove(succ);
+                }
+            }
+        }
+
+        res.addAll(dead);
+    }
+
+    private static void deadAssignment(Set<Stmt> res, CFG<Stmt> cfg, DataflowResult<Stmt, SetFact<Var>> liveVars) {
+        Set<Stmt> dead = new TreeSet<>(Comparator.comparing(Stmt::getIndex));
+        for (Stmt stmt : cfg) {
+            if (stmt != cfg.getEntry() && stmt != cfg.getExit() && !res.contains(stmt)) {
+                dead.add(stmt); // init all without unreachable
+            }
+        }
+
+        Set<Stmt> list = new TreeSet<>(Comparator.comparing(Stmt::getIndex));
+
+        for (Stmt stmt : dead) {
+            if (stmt instanceof AssignStmt) {
+                AssignStmt assignStmt = (AssignStmt) stmt;
+                SetFact<Var> outFact = liveVars.getOutFact(stmt);
+
+                Optional<LValue> _def = stmt.getDef();
+                if (_def.isPresent()) {
+                    if (_def.get() instanceof Var) {
+                        Var def = (Var) _def.get();
+                        if (!outFact.contains(def) && hasNoSideEffect(assignStmt.getRValue())) {
+                            list.add(stmt);
+                        }
+                    }
+                }
+            }
+        }
+
+        res.addAll(list);
     }
 
     /**
