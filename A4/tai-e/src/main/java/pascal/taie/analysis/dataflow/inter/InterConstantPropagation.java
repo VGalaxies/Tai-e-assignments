@@ -40,7 +40,6 @@ import pascal.taie.ir.stmt.Stmt;
 import pascal.taie.language.classes.JMethod;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -82,13 +81,25 @@ public class InterConstantPropagation extends
     @Override
     protected boolean transferCallNode(Stmt stmt, CPFact in, CPFact out) {
         // TODO - finish me
-        return false;
+        CPFact prev_out = out.copy();
+        out.copyFrom(in);
+
+        Optional<LValue> _def = stmt.getDef();
+        if (_def.isPresent()) {
+            LValue def = _def.get();
+            if (def instanceof Var && stmt instanceof Invoke) {
+                out.update((Var) def, Value.getUndef()); // kill
+            }
+        }
+
+        CPFact curr_out = out.copy();
+        return !curr_out.equals(prev_out);
     }
 
     @Override
     protected boolean transferNonCallNode(Stmt stmt, CPFact in, CPFact out) {
         // TODO - finish me
-        return false;
+        return cp.transferNode(stmt, in, out);
     }
 
     @Override
@@ -100,16 +111,7 @@ public class InterConstantPropagation extends
     @Override
     protected CPFact transferCallToReturnEdge(CallToReturnEdge<Stmt> edge, CPFact out) {
         // TODO - finish me
-        CPFact res = out.copy();
-        Stmt callStmt = edge.getSource();
-        Optional<LValue> _def = callStmt.getDef();
-        if (_def.isPresent()) {
-            LValue def = _def.get();
-            if (def instanceof Var && callStmt instanceof Invoke) {
-                res.update((Var) def, Value.getUndef()); // kill
-            }
-        }
-        return res;
+        return out.copy();
     }
 
     @Override
@@ -142,8 +144,8 @@ public class InterConstantPropagation extends
             LValue def = _def.get();
             if (def instanceof Var && callStmt instanceof Invoke) {
                 Value value = Value.getUndef();
-                for (Map.Entry<Var, Value> entry : returnOut.entries().toList()) {
-                    value = cp.meetValue(value, entry.getValue());
+                for (Var var : edge.getReturnVars()) {
+                    value = cp.meetValue(value, returnOut.get(var));
                 }
                 res.update((Var) def, value);
             }
