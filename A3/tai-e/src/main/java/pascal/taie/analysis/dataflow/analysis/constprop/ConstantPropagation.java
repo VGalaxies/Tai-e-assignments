@@ -145,16 +145,17 @@ public class ConstantPropagation extends
      */
     public static Value evaluate(Exp exp, CPFact in) {
         // TODO - finish me
-        if (exp instanceof IntLiteral) {
-            IntLiteral intLiteral = (IntLiteral) exp;
+        if (exp instanceof IntLiteral intLiteral) {
             // CPFact unused
             return Value.makeConstant(intLiteral.getValue());
-        } else if (exp instanceof Var) {
-            Var var = (Var) exp;
+        }
+
+        if (exp instanceof Var var) {
             // e.g. y = 1; x = y;
             return in.get(var);
-        } else if (exp instanceof BinaryExp) {
-            BinaryExp binaryExp = (BinaryExp) exp;
+        }
+
+        if (exp instanceof BinaryExp binaryExp) {
             // recursive
             Value op1 = evaluate(binaryExp.getOperand1(), in);
             Value op2 = evaluate(binaryExp.getOperand2(), in);
@@ -232,7 +233,26 @@ public class ConstantPropagation extends
             }
             return Value.getUndef(); // note
         }
+
+        if (exp instanceof NewExp) {
+            return Value.getUndef();
+        }
+
+        if (exp instanceof FieldAccess fieldAccess) {
+            Type type = fieldAccess.getFieldRef().getType();
+            if (type instanceof PrimitiveType) {
+                switch ((PrimitiveType) type) {
+                    case BYTE:
+                    case SHORT:
+                    case INT:
+                    case CHAR:
+                    case BOOLEAN:
+                        return Value.getNAC();
+                }
+            }
+            return Value.getUndef();
+        }
+
         return Value.getNAC(); // note
     }
 }
-
