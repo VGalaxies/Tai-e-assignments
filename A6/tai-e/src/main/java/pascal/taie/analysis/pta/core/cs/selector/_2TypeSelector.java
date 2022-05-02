@@ -29,7 +29,6 @@ import pascal.taie.analysis.pta.core.cs.element.CSMethod;
 import pascal.taie.analysis.pta.core.cs.element.CSObj;
 import pascal.taie.analysis.pta.core.heap.Obj;
 import pascal.taie.language.classes.JMethod;
-import pascal.taie.language.type.Type;
 
 /**
  * Implementation of 2-type sensitivity.
@@ -63,17 +62,28 @@ public class _2TypeSelector implements ContextSelector {
     @Override
     public Context selectContext(CSCallSite callSite, CSObj recv, JMethod callee) {
         // TODO - finish me
-        switch (callSite.getContext().getLength()) {
+        switch (recv.getContext().getLength()) {
             case 0:
                 return ListContext.make(recv.getObject().getContainerType());
             case 1:
+//                if (recv.getContext().getElementAt(0) == recv.getObject().getContainerType()) {
+//                    return ListContext.make(
+//                            recv.getContext().getElementAt(0)
+//                    );
+//                }
                 return ListContext.make(
-                        callSite.getContext().getElementAt(0),
+                        recv.getContext().getElementAt(0),
                         recv.getObject().getContainerType()
                 );
             case 2:
+//                if (recv.getContext().getElementAt(1) == recv.getObject().getContainerType()) {
+//                    return ListContext.make(
+//                            recv.getContext().getElementAt(0),
+//                            recv.getContext().getElementAt(1)
+//                    );
+//                }
                 return ListContext.make(
-                        callSite.getContext().getElementAt(1),
+                        recv.getContext().getElementAt(1),
                         recv.getObject().getContainerType()
                 );
             default:
@@ -85,6 +95,7 @@ public class _2TypeSelector implements ContextSelector {
     @Override
     public Context selectHeapContext(CSMethod method, Obj obj) {
         // TODO - finish me
+        // return ListContext.make(method.getMethod().getDeclaringClass().getType());
         switch (method.getContext().getLength()) {
             case 0:
                 return getEmptyContext();
