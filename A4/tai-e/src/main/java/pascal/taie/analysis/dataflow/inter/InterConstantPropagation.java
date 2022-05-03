@@ -81,19 +81,20 @@ public class InterConstantPropagation extends
     @Override
     protected boolean transferCallNode(Stmt stmt, CPFact in, CPFact out) {
         // TODO - finish me
-        CPFact prev_out = out.copy();
-        out.copyFrom(in);
-
-        Optional<LValue> _def = stmt.getDef();
-        if (_def.isPresent()) {
-            LValue def = _def.get();
-            if (def instanceof Var && stmt instanceof Invoke) {
-                out.update((Var) def, Value.getUndef()); // kill
-            }
-        }
-
-        CPFact curr_out = out.copy();
-        return !curr_out.equals(prev_out);
+//        CPFact prev_out = out.copy();
+//        out.copyFrom(in);
+//
+//        Optional<LValue> _def = stmt.getDef();
+//        if (_def.isPresent()) {
+//            LValue def = _def.get();
+//            if (def instanceof Var && stmt instanceof Invoke) {
+//                out.update((Var) def, Value.getUndef()); // kill
+//            }
+//        }
+//
+//        CPFact curr_out = out.copy();
+//        return !curr_out.equals(prev_out);
+        return out.copyFrom(in);
     }
 
     @Override
@@ -111,13 +112,27 @@ public class InterConstantPropagation extends
     @Override
     protected CPFact transferCallToReturnEdge(CallToReturnEdge<Stmt> edge, CPFact out) {
         // TODO - finish me
-        return out.copy();
+        CPFact res = out.copy();
+
+        Stmt src = edge.getSource();
+        assert src instanceof Invoke;
+
+        Optional<LValue> _def = src.getDef();
+        if (_def.isPresent()) {
+            LValue def = _def.get();
+            if (def instanceof Var) {
+                res.update((Var) def, Value.getUndef()); // kill
+            }
+        }
+
+        return res;
     }
 
     @Override
     protected CPFact transferCallEdge(CallEdge<Stmt> edge, CPFact callSiteOut) {
         // TODO - finish me
         CPFact res = new CPFact();
+
         assert edge.getSource() instanceof Invoke;
         Invoke srcStmt = (Invoke) edge.getSource();
         InvokeExp srcExp = srcStmt.getInvokeExp();
@@ -131,6 +146,7 @@ public class InterConstantPropagation extends
             Var arg = srcExp.getArg(i);
             res.update(param, callSiteOut.get(arg));
         }
+
         return res;
     }
 
@@ -138,6 +154,7 @@ public class InterConstantPropagation extends
     protected CPFact transferReturnEdge(ReturnEdge<Stmt> edge, CPFact returnOut) {
         // TODO - finish me
         CPFact res = new CPFact();
+
         Stmt callStmt = edge.getCallSite();
         Optional<LValue> _def = callStmt.getDef();
         if (_def.isPresent()) {
@@ -150,6 +167,7 @@ public class InterConstantPropagation extends
                 res.update((Var) def, value);
             }
         }
+
         return res;
     }
 }

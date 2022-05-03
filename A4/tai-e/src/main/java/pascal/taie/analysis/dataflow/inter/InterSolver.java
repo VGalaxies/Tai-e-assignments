@@ -62,6 +62,8 @@ class InterSolver<Method, Node, Fact> {
 
     private void initialize() {
         // TODO - finish me
+        workList = new LinkedList<>();
+
         for (Method entryMethod : icfg.entryMethods().toList()) {
             Node entryNode = icfg.getEntryOf(entryMethod);
             result.setOutFact(entryNode, analysis.newBoundaryFact(entryNode));
@@ -78,13 +80,12 @@ class InterSolver<Method, Node, Fact> {
 
     private void doSolve() {
         // TODO - finish me
-        LinkedList<Node> list = new LinkedList<>();
         for (Node node : icfg) {
-            list.addLast(node);
+            workList.add(node);
         }
 
-        while (!list.isEmpty()) {
-            Node node = list.pollFirst();
+        while (!workList.isEmpty()) {
+            Node node = workList.remove();
 
             Fact node_in_fact = result.getInFact(node);
             for (ICFGEdge<Node> pred_edge : icfg.getInEdgesOf(node)) {
@@ -98,11 +99,7 @@ class InterSolver<Method, Node, Fact> {
             result.setOutFact(node, node_out_fact);
 
             if (changed) {
-                for (Node succ : icfg.getSuccsOf(node)) {
-                    if (!list.contains(succ)) {
-                        list.addLast(succ);
-                    }
-                }
+                workList.addAll(icfg.getSuccsOf(node));
             }
         }
     }
