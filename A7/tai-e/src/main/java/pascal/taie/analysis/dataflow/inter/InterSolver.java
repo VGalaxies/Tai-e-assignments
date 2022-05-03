@@ -24,8 +24,10 @@ package pascal.taie.analysis.dataflow.inter;
 
 import pascal.taie.analysis.dataflow.fact.DataflowResult;
 import pascal.taie.analysis.graph.icfg.ICFG;
+import pascal.taie.analysis.graph.icfg.ICFGEdge;
 import pascal.taie.util.collection.SetQueue;
 
+import java.util.LinkedList;
 import java.util.Queue;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -60,9 +62,53 @@ class InterSolver<Method, Node, Fact> {
 
     private void initialize() {
         // TODO - finish me
+        workList = new LinkedList<>();
+
+        for (Method entryMethod : icfg.entryMethods().toList()) {
+            Node entryNode = icfg.getEntryOf(entryMethod);
+            result.setOutFact(entryNode, analysis.newBoundaryFact(entryNode));
+            result.setInFact(entryNode, analysis.newBoundaryFact(entryNode)); // for meetInto
+        }
+
+        for (Node node : icfg) {
+            if (result.getInFact(node) == null) { // uninitialized
+                result.setOutFact(node, analysis.newInitialFact());
+                result.setInFact(node, analysis.newInitialFact()); // for meetInto
+            }
+        }
     }
 
     private void doSolve() {
         // TODO - finish me
+        for (Node node : icfg) {
+            workList.add(node);
+        }
+
+        while (!workList.isEmpty()) {
+            Node node = workList.remove();
+
+            Fact node_in_fact = result.getInFact(node);
+            for (ICFGEdge<Node> pred_edge : icfg.getInEdgesOf(node)) {
+                Fact pred_fact = analysis.transferEdge(pred_edge, result.getOutFact(pred_edge.getSource()));
+                analysis.meetInto(pred_fact, node_in_fact);
+            }
+            result.setInFact(node, node_in_fact);
+
+            Fact node_out_fact = result.getOutFact(node);
+            boolean changed = analysis.transferNode(node, node_in_fact, node_out_fact);
+            result.setOutFact(node, node_out_fact);
+
+            if (changed) {
+                workList.addAll(icfg.getSuccsOf(node));
+            }
+        }
+    }
+
+    public DataflowResult<Node, Fact> getResult() {
+        return result;
+    }
+
+    public void addWorkList(Node node) {
+        workList.add(node);
     }
 }

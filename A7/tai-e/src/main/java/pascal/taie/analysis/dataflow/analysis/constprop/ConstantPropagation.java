@@ -103,10 +103,9 @@ public class ConstantPropagation extends
         Optional<LValue> _def = stmt.getDef();
         if (_def.isPresent()) {
             LValue def = _def.get();
-            if (def instanceof Var && stmt instanceof DefinitionStmt) {
+            if (def instanceof Var && stmt instanceof DefinitionStmt<?, ?> definitionStmt) {
                 CPFact prev_out = out.copy();
                 out.copyFrom(in);
-                DefinitionStmt<?, ?> definitionStmt = (DefinitionStmt<?, ?>) stmt;
                 out.update((Var) def, evaluate(definitionStmt.getRValue(), in));
                 CPFact curr_out = out.copy();
                 return !curr_out.equals(prev_out);

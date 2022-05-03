@@ -186,21 +186,25 @@ class Solver {
                 CSCallSite callSite = csManager.getCSCallSite(context, stmt);
                 Context calleeContext = contextSelector.selectContext(callSite, null);
 
-                addReachable(csManager.getCSMethod(calleeContext, method)); // note
+                if (callGraph.addEdge(new Edge<>(
+                        CallGraphs.getCallKind(stmt), callSite,
+                        csManager.getCSMethod(calleeContext, method)))) {
+                    addReachable(csManager.getCSMethod(calleeContext, method)); // note
 
-                for (int i = 0 ; i < invokeExp.getArgCount(); ++i) {
-                    addPFGEdge(
-                            csManager.getCSVar(context, invokeExp.getArg(i)),
-                            csManager.getCSVar(calleeContext, ir.getParam(i))
-                    );
-                }
-
-                if (stmt.getLValue() != null) {
-                    for (Var ret : ir.getReturnVars()) {
+                    for (int i = 0; i < invokeExp.getArgCount(); ++i) {
                         addPFGEdge(
-                                csManager.getCSVar(calleeContext, ret),
-                                csManager.getCSVar(context, stmt.getLValue())
+                                csManager.getCSVar(context, invokeExp.getArg(i)),
+                                csManager.getCSVar(calleeContext, ir.getParam(i))
                         );
+                    }
+
+                    if (stmt.getLValue() != null) {
+                        for (Var ret : ir.getReturnVars()) {
+                            addPFGEdge(
+                                    csManager.getCSVar(calleeContext, ret),
+                                    csManager.getCSVar(context, stmt.getLValue())
+                            );
+                        }
                     }
                 }
             }
