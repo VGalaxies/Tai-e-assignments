@@ -253,6 +253,21 @@ public class ConstantPropagation extends
             return Value.getUndef();
         }
 
+        if (exp instanceof ArrayAccess arrayAccess) {
+            Type type = arrayAccess.getType();
+            if (type instanceof PrimitiveType) {
+                switch ((PrimitiveType) type) {
+                    case BYTE:
+                    case SHORT:
+                    case INT:
+                    case CHAR:
+                    case BOOLEAN:
+                        return Value.getNAC();
+                }
+            }
+            return Value.getUndef();
+        }
+
         return Value.getNAC(); // note
     }
 }

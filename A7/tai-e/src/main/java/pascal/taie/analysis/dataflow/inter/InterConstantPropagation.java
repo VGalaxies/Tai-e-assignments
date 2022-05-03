@@ -129,7 +129,8 @@ public class InterConstantPropagation extends
                     for (LoadArray loadArray : var.getLoadArrays()) {
                         Var indexLoad = loadArray.getArrayAccess().getIndex();
                         CPFact factLoad = this.solver.getResult().getOutFact(loadArray);
-                        if (isIntersectIndex(factStore.get(indexStore), factLoad.get(indexLoad))) {
+                        if (isIntersectIndex(factStore.get(indexStore), factLoad.get(indexLoad)) ||
+                            isIntersectIndex(in.get(indexStore), factLoad.get(indexLoad))) {
                             this.solver.addWorkList(loadArray);
                         }
                     }
@@ -150,7 +151,8 @@ public class InterConstantPropagation extends
                     for (StoreArray storeArray : var.getStoreArrays()) {
                         Var indexStore = storeArray.getArrayAccess().getIndex();
                         CPFact factStore = this.solver.getResult().getOutFact(storeArray);
-                        if (isIntersectIndex(factStore.get(indexStore), factLoad.get(indexLoad))) {
+                        if (isIntersectIndex(factStore.get(indexStore), factLoad.get(indexLoad)) ||
+                            isIntersectIndex(factStore.get(indexStore), in.get(indexLoad))) {
                             value = cp.meetValue(value, factStore.get(storeArray.getRValue()));
                         }
                     }
