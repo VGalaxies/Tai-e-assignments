@@ -57,6 +57,9 @@ import pascal.taie.language.classes.JField;
 import pascal.taie.language.classes.JMethod;
 import pascal.taie.language.type.Type;
 
+import java.util.ArrayDeque;
+import java.util.Queue;
+
 public class Solver {
 
     private static final Logger logger = LogManager.getLogger(Solver.class);
@@ -98,7 +101,22 @@ public class Solver {
         return csManager;
     }
 
-    public void addWorkListEntry(Pointer pointer, PointsToSet pointsToSet) {
+    // taint work list
+    private Queue<WorkList.Entry> taintWorkList = new ArrayDeque<>();
+
+    private boolean containsTaint(PointsToSet pointsToSet) {
+        for (CSObj csObj : pointsToSet) {
+            if (taintAnalysis.isTaint(csObj.getObject())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public void addEntry(Pointer pointer, PointsToSet pointsToSet) {
+        if (containsTaint(pointsToSet)) {
+            taintWorkList.add(new WorkList.Entry(pointer, pointsToSet));
+        }
         workList.addEntry(pointer, pointsToSet);
     }
 
@@ -155,7 +173,7 @@ public class Solver {
         @Override
         public Void visit(New stmt) {
             Context objContext = contextSelector.selectHeapContext(csMethod, null); // note
-            workList.addEntry(
+            addEntry(
                     csManager.getCSVar(context, stmt.getLValue()),
                     PointsToSetFactory.make(
                             csManager.getCSObj(objContext, heapModel.getObj(stmt)))
@@ -229,15 +247,17 @@ public class Solver {
                     }
 
                     // process source
-                    taintAnalysis.processSource(method, ir.getMethod().getReturnType(), stmt, context);
-
-                    // process arg-to-result
                     if (stmt.getLValue() != null) {
-                        for (int i = 0 ; i < invokeExp.getArgCount(); ++i) {
-                            CSVar csVar = csManager.getCSVar(context, invokeExp.getArg(i));
-                            taintAnalysis.processArgToResult(method, ir.getMethod().getReturnType(),
-                                    stmt, csVar, i, context);
-                        }
+                        taintAnalysis.processSource(method, ir.getMethod().getReturnType(), stmt, context);
+                    }
+                }
+
+                // process arg-to-result
+                if (stmt.getLValue() != null) {
+                    for (int i = 0 ; i < invokeExp.getArgCount(); ++i) {
+                        CSVar csVar = csManager.getCSVar(context, invokeExp.getArg(i));
+                        taintAnalysis.processArgToResult(method, ir.getMethod().getReturnType(),
+                                stmt, csVar, i, context);
                     }
                 }
             }
@@ -252,7 +272,7 @@ public class Solver {
         // TODO - finish me
         if (pointerFlowGraph.addEdge(source, target)) {
             if (!source.getPointsToSet().isEmpty()) {
-                workList.addEntry(target, source.getPointsToSet());
+                addEntry(target, source.getPointsToSet());
             }
         }
     }
@@ -262,8 +282,15 @@ public class Solver {
      */
     private void analyze() {
         // TODO - finish me
-        while (!workList.isEmpty()) {
-            WorkList.Entry entry = workList.pollEntry();
+        // taint work list
+        while (!workList.isEmpty() || !taintWorkList.isEmpty()) {
+            WorkList.Entry entry;
+            if (!taintWorkList.isEmpty()) { // high priority
+                entry = taintWorkList.poll();
+            } else {
+                entry = workList.pollEntry();
+            }
+
             PointsToSet delta = propagate(entry.pointer(), entry.pointsToSet());
             if (entry.pointer() instanceof CSVar csVar) {
                 for (CSObj obj : delta) {
@@ -315,7 +342,7 @@ public class Solver {
         // TODO - finish me
         PointsToSet delta = PointsToSetFactory.make();
         for (CSObj obj : pointsToSet.getObjects()) {
-            if (!pointer.getPointsToSet().contains(obj)) {
+            if (!pointer.getPointsToSet().contains(obj)) { // note
                 delta.addObject(obj);
             }
         }
@@ -325,7 +352,14 @@ public class Solver {
                 pointer.getPointsToSet().addObject(obj);
             }
             for (Pointer succ : pointerFlowGraph.getSuccsOf(pointer)) {
-                workList.addEntry(succ, delta);
+                addEntry(succ, delta);
+            }
+        }
+
+        // note
+        for (CSObj obj : pointsToSet.getObjects()) {
+            if (taintAnalysis.isTaint(obj.getObject())) {
+                delta.addObject(obj);
             }
         }
 
@@ -341,11 +375,15 @@ public class Solver {
     private void processCall(CSVar recv, CSObj recvObj) {
         // TODO - finish me
         for (Invoke invoke : recv.getVar().getInvokes()) {
+            InvokeExp invokeExp = invoke.getInvokeExp(); // arg
             JMethod method = resolveCallee(recvObj, invoke);
+            IR ir = method.getIR(); // param
+            assert invokeExp.getArgCount() == method.getParamCount();
+
             CSCallSite callSite = csManager.getCSCallSite(recv.getContext(), invoke);
             Context calleeContext = contextSelector.selectContext(callSite, recvObj, null);
 
-            workList.addEntry(
+            addEntry(
                     csManager.getCSVar(calleeContext, method.getIR().getThis()),
                     PointsToSetFactory.make(recvObj)
             );
@@ -354,10 +392,6 @@ public class Solver {
                     CallGraphs.getCallKind(invoke), callSite,
                     csManager.getCSMethod(calleeContext, method)))) {
                 addReachable(csManager.getCSMethod(calleeContext, method));
-
-                InvokeExp invokeExp = invoke.getInvokeExp(); // arg
-                IR ir = method.getIR(); // param
-                assert invokeExp.getArgCount() == method.getParamCount();
 
                 for (int i = 0 ; i < invokeExp.getArgCount(); ++i) {
                     addPFGEdge(
@@ -373,28 +407,32 @@ public class Solver {
                                 csManager.getCSVar(recv.getContext(), invoke.getLValue())
                         );
                     }
-
-                    // process source
-                    taintAnalysis.processSource(method, ir.getMethod().getReturnType(), invoke, recv.getContext());
-
-                    // process base-to-result
-                    taintAnalysis.processBaseToResult(method, ir.getMethod().getReturnType(), recv, invoke);
                 }
 
-                // process arg-to-result
+                // process source
                 if (invoke.getLValue() != null) {
-                    for (int i = 0 ; i < invokeExp.getArgCount(); ++i) {
-                        CSVar csVar = csManager.getCSVar(recv.getContext(), invokeExp.getArg(i));
-                        taintAnalysis.processArgToResult(method, ir.getMethod().getReturnType(),
-                                invoke, csVar, i, recv.getContext());
-                    }
+                    taintAnalysis.processSource(method, ir.getMethod().getReturnType(), invoke, recv.getContext());
                 }
+            }
 
-                // process arg-to-base
+            // process base-to-result
+            if (invoke.getLValue() != null) {
+                taintAnalysis.processBaseToResult(method, ir.getMethod().getReturnType(), recv, invoke);
+            }
+
+            // process arg-to-result
+            if (invoke.getLValue() != null) {
                 for (int i = 0 ; i < invokeExp.getArgCount(); ++i) {
                     CSVar csVar = csManager.getCSVar(recv.getContext(), invokeExp.getArg(i));
-                    taintAnalysis.processArgToBase(method, recv.getType(), recv, csVar, i);
+                    taintAnalysis.processArgToResult(method, ir.getMethod().getReturnType(),
+                            invoke, csVar, i, recv.getContext());
                 }
+            }
+
+            // process arg-to-base
+            for (int i = 0 ; i < invokeExp.getArgCount(); ++i) {
+                CSVar csVar = csManager.getCSVar(recv.getContext(), invokeExp.getArg(i));
+                taintAnalysis.processArgToBase(method, recv.getType(), recv, csVar, i);
             }
         }
     }

@@ -38,7 +38,6 @@ import pascal.taie.ir.stmt.Invoke;
 import pascal.taie.language.classes.JMethod;
 import pascal.taie.language.type.Type;
 
-import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -70,16 +69,21 @@ public class TaintAnalysiss {
 
     // TODO - finish me
 
+    public boolean isTaint(Obj obj) {
+        return manager.isTaint(obj);
+    }
+
     public void processSource(JMethod method, Type type, Invoke invoke, Context context) {
         for (Source source : config.getSources()) {
             if (source.method() == method && source.type() == type) {
                 CSObj csObj = csManager.getCSObj(
                         emptyContext,
-                        manager.makeTaint(invoke, type));
-                solver.addWorkListEntry(
-                        csManager.getCSVar(context, invoke.getLValue()),
-                        PointsToSetFactory.make(csObj)
+                        manager.makeTaint(invoke, type)
                 );
+                CSVar csVar = csManager.getCSVar(context, invoke.getLValue());
+                if (!solver.getResult().getPointsToSet(csVar).contains(csObj)) {
+                    solver.addEntry(csVar, PointsToSetFactory.make(csObj));
+                }
             }
         }
     }
@@ -100,10 +104,10 @@ public class TaintAnalysiss {
                                         type
                                 )
                         );
-                        solver.addWorkListEntry(
-                                csManager.getCSVar(base.getContext(), invoke.getLValue()),
-                                PointsToSetFactory.make(taintObj)
-                        );
+                        CSVar csVar = csManager.getCSVar(base.getContext(), invoke.getLValue());
+                        if (!solver.getResult().getPointsToSet(csVar).contains(taintObj)) {
+                            solver.addEntry(csVar, PointsToSetFactory.make(taintObj));
+                        }
                     }
                 }
             }
@@ -117,7 +121,7 @@ public class TaintAnalysiss {
                 transfer.to() == TaintTransfer.BASE &&
                 transfer.type() == type) {
                 for (CSObj csObj : solver.getResult().getPointsToSet(arg)) {
-                    Obj obj = csObj.getObject();;
+                    Obj obj = csObj.getObject();
                     if (manager.isTaint(obj) && obj.getType() == arg.getType()) {
                         CSObj taintObj = csManager.getCSObj(
                                 emptyContext,
@@ -126,7 +130,9 @@ public class TaintAnalysiss {
                                         type
                                 )
                         );
-                        solver.addWorkListEntry(base, PointsToSetFactory.make(taintObj));
+                        if (!solver.getResult().getPointsToSet(base).contains(taintObj)) {
+                            solver.addEntry(base, PointsToSetFactory.make(taintObj));
+                        }
                     }
                 }
             }
@@ -149,10 +155,10 @@ public class TaintAnalysiss {
                                         type
                                 )
                         );
-                        solver.addWorkListEntry(
-                                csManager.getCSVar(context, invoke.getLValue()),
-                                PointsToSetFactory.make(taintObj)
-                        );
+                        CSVar csVar = csManager.getCSVar(context, invoke.getLValue());
+                        if (!solver.getResult().getPointsToSet(csVar).contains(taintObj)) {
+                            solver.addEntry(csVar, PointsToSetFactory.make(taintObj));
+                        }
                     }
                 }
             }
