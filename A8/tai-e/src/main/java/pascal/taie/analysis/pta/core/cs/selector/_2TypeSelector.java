@@ -44,18 +44,70 @@ public class _2TypeSelector implements ContextSelector {
     @Override
     public Context selectContext(CSCallSite callSite, JMethod callee) {
         // TODO - finish me
+        switch (callSite.getContext().getLength()) {
+            case 0:
+                return getEmptyContext();
+            case 1:
+                return ListContext.make(callSite.getContext().getElementAt(0));
+            case 2:
+                return ListContext.make(
+                        callSite.getContext().getElementAt(0),
+                        callSite.getContext().getElementAt(1)
+                );
+            default:
+                assert false;
+        }
         return null;
     }
 
     @Override
     public Context selectContext(CSCallSite callSite, CSObj recv, JMethod callee) {
         // TODO - finish me
+        switch (recv.getContext().getLength()) {
+            case 0:
+                return ListContext.make(recv.getObject().getContainerType());
+            case 1:
+//                if (recv.getContext().getElementAt(0) == recv.getObject().getContainerType()) {
+//                    return ListContext.make(
+//                            recv.getContext().getElementAt(0)
+//                    );
+//                }
+                return ListContext.make(
+                        recv.getContext().getElementAt(0),
+                        recv.getObject().getContainerType()
+                );
+            case 2:
+//                if (recv.getContext().getElementAt(1) == recv.getObject().getContainerType()) {
+//                    return ListContext.make(
+//                            recv.getContext().getElementAt(0),
+//                            recv.getContext().getElementAt(1)
+//                    );
+//                }
+                return ListContext.make(
+                        recv.getContext().getElementAt(1),
+                        recv.getObject().getContainerType()
+                );
+            default:
+                assert false;
+        }
         return null;
     }
 
     @Override
     public Context selectHeapContext(CSMethod method, Obj obj) {
         // TODO - finish me
+        // return ListContext.make(method.getMethod().getDeclaringClass().getType());
+        switch (method.getContext().getLength()) {
+            case 0:
+                return getEmptyContext();
+            case 1:
+                return ListContext.make(method.getContext().getElementAt(0));
+            case 2:
+                return ListContext.make(method.getContext().getElementAt(1));
+            default:
+                assert false;
+        }
         return null;
     }
 }
+
