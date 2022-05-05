@@ -96,11 +96,13 @@ public class TaintAnalysiss {
                 transfer.type() == type) {
                 for (CSObj csObj : solver.getResult().getPointsToSet(base)) {
                     Obj obj = csObj.getObject();
-                    if (manager.isTaint(obj) && obj.getType() == base.getType()) {
+                    if (manager.isTaint(obj)
+//                            && obj.getType() == base.getType()
+                    ) {
                         CSObj taintObj = csManager.getCSObj(
                                 emptyContext,
                                 manager.makeTaint(
-                                        manager.getSourceCall(obj), // invoke?
+                                        manager.getSourceCall(obj), // not invoke
                                         type
                                 )
                         );
@@ -122,7 +124,9 @@ public class TaintAnalysiss {
                 transfer.type() == type) {
                 for (CSObj csObj : solver.getResult().getPointsToSet(arg)) {
                     Obj obj = csObj.getObject();
-                    if (manager.isTaint(obj) && obj.getType() == arg.getType()) {
+                    if (manager.isTaint(obj)
+//                            && obj.getType() == arg.getType()
+                    ) {
                         CSObj taintObj = csManager.getCSObj(
                                 emptyContext,
                                 manager.makeTaint(
@@ -147,7 +151,9 @@ public class TaintAnalysiss {
                 transfer.type() == type) {
                 for (CSObj csObj : solver.getResult().getPointsToSet(arg)) {
                     Obj obj = csObj.getObject();
-                    if (manager.isTaint(obj) && obj.getType() == arg.getType()) {
+                    if (manager.isTaint(obj)
+//                            && obj.getType() == arg.getType()
+                    ) {
                         CSObj taintObj = csManager.getCSObj(
                                 emptyContext,
                                 manager.makeTaint(
@@ -186,7 +192,9 @@ public class TaintAnalysiss {
                     for (CSObj csObj : result.getPointsToSet(
                             csManager.getCSVar(callSite.getContext(), targetArg))) {
                         Obj obj = csObj.getObject();;
-                        if (manager.isTaint(obj) && obj.getType() == targetArg.getType()) {
+                        if (manager.isTaint(obj)
+//                                && obj.getType() == targetArg.getType()
+                        ) {
                             TaintFlow taintFlow = new TaintFlow(
                                     manager.getSourceCall(obj),
                                     callSite.getCallSite(),
